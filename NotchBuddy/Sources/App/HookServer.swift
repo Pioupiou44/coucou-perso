@@ -952,6 +952,8 @@ final class HookServer: @unchecked Sendable {
             "notch-buddy":  "Notch Buddy",
             "notchbuddy":   "Notch Buddy",
             "notch_buddy":  "Notch Buddy",
+            // The Copilot fork works on the agent that watches it — show the agent, not the folder.
+            "coucou-perso": "Copilot",
         ]
         return aliases[name.lowercased()] ?? name
     }
