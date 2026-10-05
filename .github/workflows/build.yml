@@ -54,7 +54,16 @@ jobs:
             -configuration Release \
             build \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
+            -derivedDataPath build/dd
+
+      - name: Upload Mac app (unsigned, for local testing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coucou-macOS-unsigned
+          path: build/dd/Build/Products/Release/Coucou.app
+          if-no-files-found: warn
+          retention-days: 5
 
       - name: Build App Store target (unsigned)
         run: |
