@@ -2206,6 +2206,11 @@ def main():
     # socket_path is already defined above
 
     if event == 'PermissionRequest':
+        # Copilot: VS Code's own permission engine is in charge (chat approval
+        # mode, e.g. Allow all). Answer instantly, never show a notch card —
+        # this also covers hook configs cached in the Copilot runtime.
+        if agent == 'copilot':
+            sys.exit(0)
         # Block and wait for Coucou's decision (Claude Code allows up to 120s)
         try:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -2490,6 +2495,11 @@ def main():
     # socket_path is already defined above
 
     if event == 'PermissionRequest':
+        # Copilot: VS Code's own permission engine is in charge (chat approval
+        # mode, e.g. Allow all). Answer instantly, never show a notch card —
+        # this also covers hook configs cached in the Copilot runtime.
+        if agent == 'copilot':
+            sys.exit(0)
         # Block and wait for Coucou's decision (Claude Code allows up to 120s)
         try:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
