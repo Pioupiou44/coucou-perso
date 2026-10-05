@@ -36,9 +36,6 @@ struct SessionDetailView: View {
                                     footnote: "Answer on your Mac for now.")
                         }
                         ThreadView(entries: thread, working: session.isWorking)
-                        if session.acceptsInstructions {
-                            InstructionComposer(link: link, session: session)
-                        }
                         if thread.isEmpty, !session.steps.isEmpty {
                             plan(session)
                         }
@@ -80,6 +77,15 @@ struct SessionDetailView: View {
             .onAppear {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     proxy.scrollTo("thread-end", anchor: .bottom)
+                }
+            }
+            // Pinned above the keyboard (and the home indicator), like a real
+            // chat composer — it no longer scrolls away with the thread.
+            .safeAreaInset(edge: .bottom) {
+                if let session, session.acceptsInstructions {
+                    InstructionComposer(link: link, session: session)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
                 }
             }
         }

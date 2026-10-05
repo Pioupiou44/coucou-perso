@@ -42,32 +42,30 @@ struct InstructionComposer: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
                 .background(Color(white: 0.16), in: RoundedRectangle(cornerRadius: 18))
-            Menu {
+            // Mic only in the row; the language picker lives in its long-press
+            // menu so typing keeps most of the width for the text field.
+            Button {
+                Task { await dictation.toggle(startingFrom: text) }
+            } label: {
+                Image(systemName: dictation.isRecording ? "stop.circle.fill" : "mic.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(dictation.isRecording ? Color.red : Color.secondary)
+                    .frame(width: 30, height: 36)
+            }
+            .contextMenu {
                 Picker("Dictation language", selection: $dictation.localeID) {
                     ForEach(Dictation.languages, id: \.self) { id in
                         Text(Locale.current.localizedString(forIdentifier: id) ?? id).tag(id)
                     }
                 }
-            } label: {
-                Text(Dictation.shortName(dictation.localeID))
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 26, height: 36)
-            }
-            Button {
-                Task { await dictation.toggle(startingFrom: text) }
-            } label: {
-                Image(systemName: dictation.isRecording ? "stop.circle.fill" : "mic.fill")
-                    .font(.title3)
-                    .foregroundStyle(dictation.isRecording ? Color.red : Color.secondary)
-                    .frame(width: 36, height: 36)
             }
             Button {
                 Task { await send() }
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 32))
+                    .font(.system(size: 28))
             }
+            .frame(width: 30, height: 36)
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
         }
     }
