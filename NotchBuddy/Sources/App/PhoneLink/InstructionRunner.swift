@@ -92,9 +92,11 @@ final class InstructionRunner {
         guard Self.isEnabled else { log("ignored: instructions are off"); return }
         guard Date().timeIntervalSince(createdAt) < maxAge else { log("ignored: older than 10 min"); return }
         guard !text.isEmpty, text.count <= 8000 else { log("ignored: empty or too long"); return }
-        guard pillId == "integration_claude" || pillId == "agent_cursor" else { log("ignored: \(pillId) can't take instructions"); return }
+        let isClaudePill = pillId == "integration_claude" || pillId == "agent_cursor"
+        let isCopilotPill = pillId.hasPrefix("agent_copilot_")
+        guard isClaudePill || isCopilotPill else { log("ignored: \(pillId) can't take instructions"); return }
         guard let session = TurnRecorder.shared.lastSession(for: pillId) else {
-            log("ignored: no Claude Code session seen for \(pillId) yet")
+            log("ignored: no session seen for \(pillId) yet")
             return
         }
         var isDirectory: ObjCBool = false
@@ -106,26 +108,31 @@ final class InstructionRunner {
             log("ignored: an instruction is already running for this session")
             return
         }
-        guard let claude = Self.claudeExecutable() else {
-            log("can't find the claude command (looked in ~/.claude/local, Homebrew, /usr/local/bin, ~/.npm-global/bin)")
+        guard let executable = isCopilotPill ? Self.copilotExecutable() : Self.claudeExecutable() else {
+            log("can't find the \(isCopilotPill ? "copilot" : "claude") command")
             return
         }
-        run(claude: claude, text: text, sessionId: session.sessionId, cwd: session.cwd, pillId: pillId)
+        run(executable: executable, text: text, sessionId: session.sessionId, cwd: session.cwd, pillId: pillId)
     }
 
     // MARK: Running
 
-    private func run(claude: String, text: String, sessionId: String, cwd: String, pillId: String) {
+    private func run(executable: String, text: String, sessionId: String, cwd: String, pillId: String) {
+        let isCopilotPill = pillId.hasPrefix("agent_copilot_")
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: claude)
+        process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = ["-p", text, "--resume", sessionId]
         process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         var env = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        env["PATH"] = [URL(fileURLWithPath: claude).deletingLastPathComponent().path, "/opt/homebrew/bin", "/usr/local/bin",
+        env["PATH"] = [URL(fileURLWithPath: executable).deletingLastPathComponent().path, "/opt/homebrew/bin", "/usr/local/bin",
                        "/usr/bin", "/bin", "/usr/sbin", "/sbin", "\(home)/.local/bin", env["PATH"] ?? ""].joined(separator: ":")
         // The hooks route events by editor: keep them on the same pill.
-        if pillId == "agent_cursor" {
+        if isCopilotPill {
+            // Copilot hooks tag with coucou_agent; the env matters less, but
+            // keep VS Code's so editor-routed fallbacks stay consistent.
+            env["TERM_PROGRAM"] = "vscode"
+        } else if pillId == "agent_cursor" {
             env["__CFBundleIdentifier"] = "com.todesktop.230313mzl4w4u92"
         } else {
             env["TERM_PROGRAM"] = "vscode"
@@ -157,7 +164,7 @@ final class InstructionRunner {
             running[sessionId] = process
             log("running in \(URL(fileURLWithPath: cwd).lastPathComponent) (\(sessionId.prefix(8))): \(text.count) chars")
         } catch {
-            log("couldn't start claude: \(error.localizedDescription)")
+            log("couldn't start the agent: \(error.localizedDescription)")
         }
     }
 
@@ -171,6 +178,18 @@ final class InstructionRunner {
             "/usr/local/bin/claude",
             "\(home)/.npm-global/bin/claude",
             "\(home)/.bun/bin/claude",
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// The Copilot CLI — resumes the same conversation the VS Code chat uses
+    /// (`copilot -p <text> --resume <session id>`), including Agent Host sessions.
+    static func copilotExecutable() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            "/opt/homebrew/bin/copilot",
+            "/usr/local/bin/copilot",
+            "\(home)/.local/bin/copilot",
         ]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }

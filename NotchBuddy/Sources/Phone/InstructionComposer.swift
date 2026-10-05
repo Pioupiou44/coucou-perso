@@ -17,12 +17,12 @@ struct InstructionComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Send to Claude").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            Text("Send to \(session.pillName)").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             if session.acceptsInstructions {
                 composer
                 status
             } else {
-                Text("To continue this session from your iPhone, turn on \"Let my iPhone send instructions to Claude Code\" in Coucou's Settings on your Mac (GitHub version), then start a turn in VS Code.")
+                Text("To continue this session from your iPhone, turn on \"Let my iPhone send instructions to my agents\" in Coucou's Settings on your Mac (GitHub version), then start a turn in VS Code.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -36,7 +36,7 @@ struct InstructionComposer: View {
 
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            TextField("Tell Claude what to do next…", text: $text, axis: .vertical)
+            TextField("Tell \(session.pillName) what to do next…", text: $text, axis: .vertical)
                 .lineLimit(1...8)
                 .focused($focused)
                 .padding(.horizontal, 12)
@@ -97,7 +97,7 @@ struct InstructionComposer: View {
         sending = true
         defer { sending = false }
         error = nil
-        guard await OwnerCheck.confirm(reason: "Send this instruction to Claude Code on your Mac") else {
+        guard await OwnerCheck.confirm(reason: "Send this instruction to \(session.pillName) on your Mac") else {
             error = "Face ID didn't confirm. Nothing was sent."
             return
         }

@@ -318,7 +318,7 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 #if !APPSTORE
-                Toggle("Let my iPhone send instructions to Claude Code", isOn: $iPhoneInstructionsEnabled)
+                Toggle("Let my iPhone send instructions to my agents", isOn: $iPhoneInstructionsEnabled)
                     .disabled(!iPhoneSyncEnabled)
                     .onChange(of: iPhoneInstructionsEnabled) { _, on in InstructionRunner.shared.setEnabled(on) }
                 Text("An instruction sent from the iPhone (Face ID required) continues your last Claude Code session in the background, in its folder, with claude --resume. This Mac checks for one every 15 s while this is on.")

@@ -243,7 +243,8 @@ struct SessionSnapshot: Equatable {
         #if APPSTORE
         record["acceptsInstructions"] = false
         #else
-        record["acceptsInstructions"] = InstructionRunner.isEnabled && (pillId == "integration_claude" || pillId == "agent_cursor")
+        record["acceptsInstructions"] = InstructionRunner.isEnabled
+            && (pillId == "integration_claude" || pillId == "agent_cursor" || pillId.hasPrefix("agent_copilot_"))
         #endif
         record.encryptedValues["name"] = name
         record.encryptedValues["steps"] = steps
