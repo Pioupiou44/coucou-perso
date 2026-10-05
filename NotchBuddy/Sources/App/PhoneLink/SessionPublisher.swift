@@ -176,6 +176,10 @@ struct SessionSnapshot: Equatable {
         var result: [String: SessionSnapshot] = [:]
         // Services (Stripe, GitHub…) go through ServicePublisher, with their data.
         for task in tasks where task.source != .n8n && PillCatalog.isSession(task.id) {
+            // Conversation pills are ephemeral: publish them only while they are
+            // actually doing something. Idle ones stay on the Mac's notch, not in
+            // the phone's team (otherwise every chat that ever opened lingers).
+            if task.id.hasPrefix("agent_copilot_") && task.state == .idle { continue }
             let hasApproval = approval?.pillId == task.id
             let questionText = task.state == .question
                 ? (question?.questions.map(\.question).joined(separator: "\n") ?? "")
