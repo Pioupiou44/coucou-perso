@@ -40,14 +40,6 @@ struct PillDefinition {
         default:                   return "Agent"
         }
     }
-
-    /// The harness an agent pill runs in, shown next to the session name.
-    /// Copilot pills are named "Copilot · <project>", so the subtitle says where it runs
-    /// instead of repeating "Copilot" (the card header showed "Copilot Copilot").
-    static func sessionHarness(for id: String) -> String {
-        if id.hasPrefix("agent_copilot") { return "VS Code" }
-        return definition(for: id)?.sessionSubtitle ?? "Agent"
-    }
 }
 
 // MARK: - Catalog
@@ -117,5 +109,13 @@ enum PillCatalog {
     /// Looks up a definition by task ID (nil if not in catalog).
     static func definition(for id: String) -> PillDefinition? {
         all.first { $0.id == id }
+    }
+
+    /// The harness an agent pill runs in, shown next to the session name.
+    /// Copilot pills are named "Copilot · <project>", so the subtitle says where it runs
+    /// instead of repeating "Copilot" (the card header showed "Copilot Copilot").
+    static func sessionHarness(for id: String) -> String {
+        if id.hasPrefix("agent_copilot") { return "VS Code" }
+        return definition(for: id)?.sessionSubtitle ?? "Agent"
     }
 }
