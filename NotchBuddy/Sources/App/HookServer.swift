@@ -348,7 +348,10 @@ final class HookServer: @unchecked Sendable {
 
         // Routing:
         // • "codex" → agent_codex (GitHub build only: workspace pill, approvals in the notch)
-        // • "copilot" → agent_copilot (GitHub build only: workspace pill, approvals in the notch)
+        // • "copilot" → one pill per conversation: agent_copilot_<8 first session-id chars>
+        //   (GitHub build only: workspace pills, approvals in the notch). agent_copilot stays
+        //   the permanent main pill; each VS Code / CLI conversation gets its own pill so
+        //   parallel sessions show side by side instead of overwriting each other.
         // • other valid coucou_agent → external pill (fire-and-forget, no approval card)
         // • Cursor bundle ID → agent_cursor
         // • VS Code → integration_claude
@@ -368,7 +371,7 @@ final class HookServer: @unchecked Sendable {
             agentId = "agent_codex"
             isExternalAgent = false
         } else if isCopilotEvent {
-            agentId = "agent_copilot"
+            agentId = Self.copilotConversationPillId(sessionId: sessionId)
             isExternalAgent = false
         } else if let agent = validAgent {
             agentId = "agent_\(agent)"
@@ -398,7 +401,7 @@ final class HookServer: @unchecked Sendable {
             switch pending.pillId {
             case "agent_cursor": handledNote = "Handled in Cursor."
             case "agent_codex":  handledNote = "Handled in Codex."
-            case "agent_copilot": handledNote = "Handled in Copilot."
+            case let p where p.hasPrefix("agent_copilot"): handledNote = "Handled in Copilot."
             default:             handledNote = "Handled in VS Code."
             }
             var resolved = false
@@ -428,7 +431,13 @@ final class HookServer: @unchecked Sendable {
 
         case "SessionStart":
             activeSessionId = sessionId
-            if isExternalAgent { upsertExternalAgent(id: agentId, name: validAgent!) } else { upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd) }
+            if isExternalAgent {
+                upsertExternalAgent(id: agentId, name: validAgent!)
+            } else if isCopilotEvent {
+                upsertCopilotConversation(id: agentId, projectName: projectName, cwd: cwd)
+            } else {
+                upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd)
+            }
             if let idx = state.tasks.firstIndex(where: { $0.id == agentId }) { state.tasks[idx].finalLine = nil }
             nbLog("SessionStart \(isExternalAgent ? agentId : projectName) (\(sessionId.prefix(8)))")
             if state.isPresent { expandIfNeeded(to: .overview) }
@@ -436,7 +445,13 @@ final class HookServer: @unchecked Sendable {
 
         case "UserPromptSubmit":
             activeSessionId = sessionId
-            if isExternalAgent { upsertExternalAgent(id: agentId, name: validAgent!) } else { upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd) }
+            if isExternalAgent {
+                upsertExternalAgent(id: agentId, name: validAgent!)
+            } else if isCopilotEvent {
+                upsertCopilotConversation(id: agentId, projectName: projectName, cwd: cwd)
+            } else {
+                upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd)
+            }
             if let idx = state.tasks.firstIndex(where: { $0.id == agentId }) { state.tasks[idx].finalLine = nil }
             state.updateTask(id: agentId, state: .thinking)
             if let prompt = payload["prompt"] as? String, !prompt.isEmpty {
@@ -451,7 +466,13 @@ final class HookServer: @unchecked Sendable {
             // AskUserQuestion is handled via the dedicated --ask hook.
             // Skip state/step update here to avoid flickering over the question card.
             guard tool != "AskUserQuestion" else { break }
-            if isExternalAgent { upsertExternalAgent(id: agentId, name: validAgent!) } else { upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd) }
+            if isExternalAgent {
+                upsertExternalAgent(id: agentId, name: validAgent!)
+            } else if isCopilotEvent {
+                upsertCopilotConversation(id: agentId, projectName: projectName, cwd: cwd)
+            } else {
+                upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd)
+            }
             state.updateTask(id: agentId, state: .working)
             let input = payload["tool_input"] as? [String: Any] ?? [:]
             let step = frenchStep(tool: tool, input: input)
@@ -543,6 +564,60 @@ final class HookServer: @unchecked Sendable {
     }
 
     // MARK: - Agent validation + dynamic pill
+
+    /// One pill per Copilot conversation: agent_copilot_<8 first session-id chars>.
+    /// Sessions with no id ("unknown") all share one fallback pill.
+    private static func copilotConversationPillId(sessionId: String) -> String {
+        "agent_copilot_" + String(sessionId.prefix(8)).lowercased()
+    }
+
+    /// Upserts the pill for one Copilot conversation. Named "Copilot · <project>",
+    /// capped at 3 conversations — the oldest is dropped so the pill row stays sane.
+    /// Copilot-blue like the main pill; the project name is what tells them apart.
+    /// Stale conversations (no event for 15 min) are swept on the next Copilot event,
+    /// covering sessions that die without a SessionEnd (crash, force-quit).
+    @MainActor
+    private func upsertCopilotConversation(id: String, projectName: String, cwd: String) {
+        let state = AppState.shared
+        sweepStaleCopilotConversations()
+        if let idx = state.tasks.firstIndex(where: { $0.id == id }) {
+            state.tasks[idx].name = "Copilot · \(projectName)"
+            state.tasks[idx].lastActivity = Date()
+            if !cwd.isEmpty { state.tasks[idx].sessionCwd = cwd }
+        } else {
+            let conversations = state.tasks.filter { $0.id.hasPrefix("agent_copilot_") }
+            if conversations.count >= 3, let oldest = conversations.first {
+                state.removeTask(id: oldest.id)
+            }
+            let task = AgentTask(id: id, name: "Copilot · \(projectName)", color: "#4C8BF5",
+                                 state: .idle, steps: [], source: .agent, isIntegration: false,
+                                 lastActivity: Date())
+            if let mainIdx = state.tasks.firstIndex(where: { $0.id == state.mainPillId }) {
+                state.tasks.insert(task, at: mainIdx + 1)
+            } else {
+                state.tasks.append(task)
+            }
+            if state.focusId == nil { state.focusId = id }
+            state.syncMode()
+        }
+    }
+
+    /// Drops Copilot conversation pills that saw no event for 15 minutes.
+    /// The permanent main pill (agent_copilot, no suffix) is never touched.
+    @MainActor
+    private func sweepStaleCopilotConversations() {
+        let state = AppState.shared
+        let cutoff = Date().addingTimeInterval(-15 * 60)
+        let stale = state.tasks.filter {
+            $0.id.hasPrefix("agent_copilot_")
+            && ($0.lastActivity ?? .distantPast) < cutoff
+        }
+        for task in stale {
+            if state.pendingApproval?.pillId == task.id { continue }  // never drop a live card
+            state.clearSessionDiffs(for: task.id)
+            state.removeTask(id: task.id)
+        }
+    }
 
     /// Validates a coucou_agent name: lowercase, digits and hyphens, 1–24 chars.
     /// "claude" is reserved and rejected so it cannot impersonate the Claude Code pill.
@@ -659,7 +734,7 @@ final class HookServer: @unchecked Sendable {
         if isCodexRequest {
             pillId = "agent_codex"
         } else if isCopilotRequest {
-            pillId = "agent_copilot"
+            pillId = Self.copilotConversationPillId(sessionId: sessionId)
         } else if isCursorEditor {
             pillId = "agent_cursor"
         } else {
@@ -706,7 +781,11 @@ final class HookServer: @unchecked Sendable {
         pendingApprovalFD = fd
         activeSessionId = sessionId
 
-        upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
+        if pillId.hasPrefix("agent_copilot_") {
+            upsertCopilotConversation(id: pillId, projectName: projectName, cwd: cwd)
+        } else {
+            upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
+        }
         state.updateTask(id: pillId, state: .approval)
         state.pendingApproval = ApprovalInfo(sessionId: sessionId, tool: tool,
                                               command: command, inputKey: inputKey, pillId: pillId)
@@ -729,7 +808,7 @@ final class HookServer: @unchecked Sendable {
             switch capturedPillId {
             case "agent_cursor": note = "Handled in Cursor."
             case "agent_codex":  note = "Handled in Codex."
-            case "agent_copilot": note = "Handled in Copilot."
+            case let p where p.hasPrefix("agent_copilot"): note = "Handled in Copilot."
             default:             note = "Handled in VS Code."
             }
             self.dismissApprovalCard(note: note)
@@ -747,7 +826,7 @@ final class HookServer: @unchecked Sendable {
             switch capturedPillId {
             case "agent_cursor": note = "Still waiting in Cursor."
             case "agent_codex":  note = "Still waiting in Codex."
-            case "agent_copilot": note = "Still waiting in Copilot."
+            case let p where p.hasPrefix("agent_copilot"): note = "Still waiting in Copilot."
             default:             note = "Still waiting in VS Code."
             }
             self.dismissApprovalCard(note: note)
@@ -831,7 +910,7 @@ final class HookServer: @unchecked Sendable {
         if isCodexRequest {
             pillId = "agent_codex"
         } else if isCopilotRequest {
-            pillId = "agent_copilot"
+            pillId = Self.copilotConversationPillId(sessionId: sessionId)
         } else if isCursorEditor {
             pillId = "agent_cursor"
         } else {
@@ -859,7 +938,11 @@ final class HookServer: @unchecked Sendable {
         activeSessionId = sessionId
         questionPillId = pillId
 
-        upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
+        if pillId.hasPrefix("agent_copilot_") {
+            upsertCopilotConversation(id: pillId, projectName: projectName, cwd: cwd)
+        } else {
+            upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
+        }
         state.updateTask(id: pillId, state: .question)
         state.pendingQuestion = parsed
         state.isPinned = true
@@ -1951,9 +2034,11 @@ final class HookServer: @unchecked Sendable {
     /// Coucou shows the approval card only when VS Code itself asks the user.
     private func buildCopilotHooksData() throws -> Data {
         let base = hookBase()
-        // Events in seconds.
+        // Events in seconds. SessionEnd removes the conversation pill
+        // when the VS Code chat or CLI session closes.
         let events: [(String, Int)] = [
             ("SessionStart",        10),
+            ("SessionEnd",          10),
             ("UserPromptSubmit",    10),
             ("PreToolUse",          10),
             ("PostToolUse",         10),

@@ -110,9 +110,10 @@ print(','.join(names))
     && echo "  ✓ agentStop→Stop, errorOccurred→StopFailure, userPromptSubmitted→UserPromptSubmit" \
     || { echo "  ✗ aliases produced: $aliases"; exit 1; }
 
-echo "Copilot relay — permission decision translation"
-relay PermissionRequest '{"hook_event_name":"PermissionRequest","session_id":"s1","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"x"}}' \
-    '{"behavior": "allow"}'
+echo "Copilot relay — permission requests are left to VS Code's own engine"
+# VS Code's permission engine (chat approval mode, e.g. Allow all) owns Copilot
+# approvals: the relay answers instantly with no output and no notch card.
+relay PermissionRequest '{"hook_event_name":"PermissionRequest","session_id":"s1","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"x"}}'
 
 echo "Copilot relay — never blocks when the app is gone"
 rm -f "$SOCKET"   # app disappears

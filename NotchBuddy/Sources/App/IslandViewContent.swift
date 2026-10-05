@@ -217,7 +217,7 @@ struct OverviewView: View {
                 NSWorkspace.shared.openApplication(at: url, configuration: .init(), completionHandler: nil)
             }
             #endif
-        case "agent_copilot":
+        case let id where id.hasPrefix("agent_copilot"):
             // Copilot lives inside VS Code (Agent Host) or the Copilot CLI terminal
             if let url = NSWorkspace.shared.urlForApplication(
                 withBundleIdentifier: "com.microsoft.VSCode") {
@@ -316,7 +316,7 @@ struct ApprovalView: View {
                         HookServer.shared.sendApprovalDecision("allow")
                     }
                     // Codex and Copilot reject updatedPermissions, so "Always" is not offered
-                    if approval?.pillId != "agent_codex" && approval?.pillId != "agent_copilot" {
+                    if approval?.pillId != "agent_codex" && !(approval?.pillId ?? "").hasPrefix("agent_copilot") {
                         SecondaryButton("Always") {
                             HookServer.shared.sendApprovalDecision("always")
                         }
@@ -1613,7 +1613,7 @@ struct IntegrationCardView: View {
             #else
             return false
             #endif
-        case "agent_copilot":
+        case let id where id.hasPrefix("agent_copilot"):
             #if !APPSTORE
             return HookServer.copilotHooksInstalled()
             #else
@@ -1746,7 +1746,7 @@ struct IntegrationCardView: View {
                    : task.id == "integration_calcom"  ? appState.calcomError
                    : nil
         if let err = svcErr { return err }
-        let isHooks = task.id == "agent_gemini" || task.id == "agent_antigravity" || task.id == "agent_copilot"
+        let isHooks = task.id == "agent_gemini" || task.id == "agent_antigravity" || task.id.hasPrefix("agent_copilot")
         let isAI    = ChatProvider(pillID: task.id) != nil
         if isConfigured {
             if isHooks { return "Hooks installed" }
@@ -1930,7 +1930,7 @@ struct IntegrationCardView: View {
                             .buttonStyle(.plain)
                         }
                         #endif
-                    } else if task.id == "agent_copilot" {
+                    } else if task.id.hasPrefix("agent_copilot") {
                         // Copilot runs inside VS Code (Agent Host) or the Copilot CLI
                         if NSWorkspace.shared.urlForApplication(
                             withBundleIdentifier: "com.microsoft.VSCode") != nil {
@@ -2012,7 +2012,7 @@ struct IntegrationCardView: View {
                     if !isConfigured
                        && task.id != "agent_cursor"
                        && task.id != "agent_codex"
-                       && task.id != "agent_copilot"
+                       && !task.id.hasPrefix("agent_copilot")
                        && task.id != "integration_music" {
                         Button("Settings…") {
                             let section: String
