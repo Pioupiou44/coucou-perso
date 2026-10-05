@@ -57,11 +57,24 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             -derivedDataPath build/dd
 
+      - name: Build Debug (no PHONE_LINK, runs unsigned)
+        run: |
+          xcodebuild \
+            -project NotchBuddy/NotchBuddy.xcodeproj \
+            -scheme NotchBuddy \
+            -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            -derivedDataPath build/dd
+
       - name: Upload Mac app (unsigned, for local testing)
         uses: actions/upload-artifact@v4
         with:
           name: Coucou-macOS-unsigned
-          path: build/dd/Build/Products/Release/Coucou.app
+          path: |
+            build/dd/Build/Products/Release/Coucou.app
+            build/dd/Build/Products/Debug/Coucou.app
           if-no-files-found: warn
           retention-days: 5
 
