@@ -26,6 +26,7 @@ bash scripts/test-screen-geometry.sh
 
 ## Rules of the house
 
+- **This repository is public.** Never commit personal or sensitive information: no real names, emails, tokens, API keys, logs, user data or private project details. Check your files before staging them.
 - Swift 6, SwiftUI + AppKit, **no third-party dependencies** unless there's really no other way.
 - Secrets go in the Keychain, never on disk or in git.
 - No telemetry, no network calls except to services the user configured.

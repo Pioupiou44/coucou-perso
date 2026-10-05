@@ -18,6 +18,7 @@ cd NotchBuddy && xcodegen && xcodebuild -scheme NotchBuddy -configuration Debug 
 Windows and Linux: `cd windows && npm install && npm run tauri dev`
 
 ## Rules
+- **This repository is public.** Committing personal or sensitive information is strictly forbidden: no real names, emails, tokens, API keys, logs, user data or private project details. Check every file before staging it; anything personal stays on the machine and out of git.
 - Swift 6, SwiftUI + AppKit. No third-party dependencies unless truly unavoidable. The character is drawn in code (`Canvas` + `TimelineView`), no Rive/Lottie/images.
 - Secrets live in the Keychain, never on disk or in git.
 - No telemetry. Network calls only to services the user configured.
