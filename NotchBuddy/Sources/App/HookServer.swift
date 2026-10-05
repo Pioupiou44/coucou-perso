@@ -556,6 +556,7 @@ final class HookServer: @unchecked Sendable {
             activeSessionId = nil
             if let idx = state.tasks.firstIndex(where: { $0.id == agentId }) { state.tasks[idx].finalLine = nil }
             state.clearSessionDiffs(for: agentId)
+            nbLog("SessionEnd \(agentId) (\(sessionId.prefix(8)))")
             state.removeTask(id: agentId)
 
         case "SubagentStart":

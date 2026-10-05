@@ -367,6 +367,23 @@ final class PhoneLink {
         }
     }
 
+    /// « Terminer la conversation » — the Mac drops the pill. Written as a
+    /// record the Mac's instruction poll consumes; nothing else to wire up.
+    func endConversation(pillId: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            let record = CKRecord(recordType: "EndConversation",
+                                  recordID: CKRecord.ID(recordName: "end-\(UUID().uuidString)", zoneID: Self.zoneID))
+            record["pillId"] = pillId
+            record["createdAt"] = Date()
+            do {
+                _ = try await self.database.save(record)
+            } catch {
+                await MainActor.run { self.lastPong = "Couldn't end the conversation: \(error.localizedDescription)" }
+            }
+        }
+    }
+
     // MARK: Decisions (step 7)
 
     /// Decisions taken on this iPhone, newest first.

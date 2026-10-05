@@ -61,12 +61,18 @@ final class InstructionRunner {
 
     private func check() async {
         var found: [CKRecord] = []
+        var ended: [(recordID: CKRecord.ID, pillId: String)] = []
         do {
             var more = true
             while more {
                 let changes = try await database.recordZoneChanges(inZoneWith: SessionSnapshot.zoneID, since: changeToken)
                 for (_, result) in changes.modificationResultsByID {
-                    if case .success(let mod) = result, mod.record.recordType == "Instruction" { found.append(mod.record) }
+                    if case .success(let mod) = result {
+                        switch mod.record.recordType {
+                        case "Instruction": found.append(mod.record)
+                        case "EndConversation": ended.append((mod.record.recordID, mod.record["pillId"] as? String ?? ""))
+                        }
+                    }
                 }
                 changeToken = changes.changeToken
                 more = changes.moreComing
@@ -76,6 +82,14 @@ final class InstructionRunner {
             return
         } catch {
             return
+        }
+        // « Terminer la conversation » from the phone: drop those pills.
+        if !ended.isEmpty {
+            _ = try? await database.modifyRecords(saving: [], deleting: ended.map(\.recordID))  // single use
+            for (_, pillId) in ended where !pillId.isEmpty {
+                AppState.shared.removeTask(id: pillId)
+                log("conversation ended from the iPhone (\(pillId))")
+            }
         }
         guard !found.isEmpty else { return }
         // Single use: gone from iCloud before anything runs.

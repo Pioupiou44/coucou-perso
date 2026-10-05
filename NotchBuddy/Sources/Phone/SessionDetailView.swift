@@ -6,6 +6,7 @@ import SwiftUI
 struct SessionDetailView: View {
     let link: PhoneLink
     let sessionId: String
+    @State private var confirmEnd = false
 
     private var session: SessionItem? { link.sessions.first { $0.id == sessionId } }
     private var turn: TurnSnapshot? { link.turns[sessionId] }
@@ -82,10 +83,17 @@ struct SessionDetailView: View {
             // Pinned above the keyboard (and the home indicator), like a real
             // chat composer — it no longer scrolls away with the thread.
             .safeAreaInset(edge: .bottom) {
-                if let session, session.acceptsInstructions {
-                    InstructionComposer(link: link, session: session)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
+                if let session {
+                    VStack(spacing: 6) {
+                        if session.acceptsInstructions {
+                            InstructionComposer(link: link, session: session)
+                        }
+                        if session.id.hasPrefix("agent_copilot_") {
+                            endButton
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
                 }
             }
         }
@@ -93,6 +101,30 @@ struct SessionDetailView: View {
         .navigationTitle(session?.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await link.refresh() }
+        .confirmationDialog("Terminer cette conversation ?", isPresented: confirmBinding, titleVisibility: .visible) {
+            Button("Terminer la conversation", role: .destructive) { link.endConversation(pillId: sessionId) }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Le Mochi quitte votre iPhone. La discussion reste dans votre chat VS Code.")
+        }
+    }
+
+    /// Explicit « stop the conversation » — the user decides, the Mac only
+    /// listens. The VS Code chat isn't closed, only this phone pill drops.
+    private var confirmBinding: Binding<Bool> {
+        Binding(get: { confirmEnd }, set: { confirmEnd = $0 })
+    }
+
+    private var endButton: some View {
+        Button {
+            confirmEnd = true
+        } label: {
+            Label("Terminer la conversation", systemImage: "xmark.circle")
+                .font(.footnote.weight(.medium))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(.secondary)
     }
 
     private func header(_ session: SessionItem) -> some View {
