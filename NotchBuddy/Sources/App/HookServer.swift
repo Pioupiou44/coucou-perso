@@ -348,6 +348,7 @@ final class HookServer: @unchecked Sendable {
 
         // Routing:
         // • "codex" → agent_codex (GitHub build only: workspace pill, approvals in the notch)
+        // • "copilot" → agent_copilot (GitHub build only: workspace pill, approvals in the notch)
         // • other valid coucou_agent → external pill (fire-and-forget, no approval card)
         // • Cursor bundle ID → agent_cursor
         // • VS Code → integration_claude
@@ -356,10 +357,18 @@ final class HookServer: @unchecked Sendable {
         #else
         let isCodexEvent = false
         #endif
+        #if !APPSTORE
+        let isCopilotEvent = rawAgent == "copilot"
+        #else
+        let isCopilotEvent = false
+        #endif
         let agentId: String
         let isExternalAgent: Bool
         if isCodexEvent {
             agentId = "agent_codex"
+            isExternalAgent = false
+        } else if isCopilotEvent {
+            agentId = "agent_copilot"
             isExternalAgent = false
         } else if let agent = validAgent {
             agentId = "agent_\(agent)"
@@ -389,6 +398,7 @@ final class HookServer: @unchecked Sendable {
             switch pending.pillId {
             case "agent_cursor": handledNote = "Handled in Cursor."
             case "agent_codex":  handledNote = "Handled in Codex."
+            case "agent_copilot": handledNote = "Handled in Copilot."
             default:             handledNote = "Handled in VS Code."
             }
             var resolved = false
@@ -623,7 +633,7 @@ final class HookServer: @unchecked Sendable {
             termProgram.lowercased().contains("vscode") ||
             bundleId.lowercased().contains("vscode"))
 
-        // Codex gets the same approval card as Claude Code / Cursor (GitHub build only).
+        // Codex / Copilot get the same approval card as Claude Code / Cursor (GitHub build only).
         // Other external agents (any other coucou_agent) answer immediately with "ask"
         // so the agent re-asks in its own terminal — they do not get a notch card.
         #if !APPSTORE
@@ -631,7 +641,12 @@ final class HookServer: @unchecked Sendable {
         #else
         let isCodexRequest = false
         #endif
-        if !isCodexRequest && Self.validateAgent(rawAgent) != nil {
+        #if !APPSTORE
+        let isCopilotRequest = rawAgent == "copilot"
+        #else
+        let isCopilotRequest = false
+        #endif
+        if !isCodexRequest && !isCopilotRequest && Self.validateAgent(rawAgent) != nil {
             Task.detached { [weak self] in
                 self?.sendLine(fd: fd, text: #"{"permissionDecision":"ask"}"#)
                 close(fd)
@@ -643,12 +658,14 @@ final class HookServer: @unchecked Sendable {
         let pillId: String
         if isCodexRequest {
             pillId = "agent_codex"
+        } else if isCopilotRequest {
+            pillId = "agent_copilot"
         } else if isCursorEditor {
             pillId = "agent_cursor"
         } else {
             pillId = "integration_claude"
         }
-        guard isCodexRequest || isCursorEditor || isVSCodeEditor else {
+        guard isCodexRequest || isCopilotRequest || isCursorEditor || isVSCodeEditor else {
             Task.detached { [weak self] in
                 self?.sendLine(fd: fd, text: #"{"permissionDecision":"ask"}"#)
                 close(fd)
@@ -712,6 +729,7 @@ final class HookServer: @unchecked Sendable {
             switch capturedPillId {
             case "agent_cursor": note = "Handled in Cursor."
             case "agent_codex":  note = "Handled in Codex."
+            case "agent_copilot": note = "Handled in Copilot."
             default:             note = "Handled in VS Code."
             }
             self.dismissApprovalCard(note: note)
@@ -729,6 +747,7 @@ final class HookServer: @unchecked Sendable {
             switch capturedPillId {
             case "agent_cursor": note = "Still waiting in Cursor."
             case "agent_codex":  note = "Still waiting in Codex."
+            case "agent_copilot": note = "Still waiting in Copilot."
             default:             note = "Still waiting in VS Code."
             }
             self.dismissApprovalCard(note: note)
@@ -803,15 +822,22 @@ final class HookServer: @unchecked Sendable {
         #else
         let isCodexRequest = false
         #endif
+        #if !APPSTORE
+        let isCopilotRequest = rawAgent == "copilot"
+        #else
+        let isCopilotRequest = false
+        #endif
         let pillId: String
         if isCodexRequest {
             pillId = "agent_codex"
+        } else if isCopilotRequest {
+            pillId = "agent_copilot"
         } else if isCursorEditor {
             pillId = "agent_cursor"
         } else {
             pillId = "integration_claude"
         }
-        guard isCodexRequest || isCursorEditor || isVSCodeEditor else {
+        guard isCodexRequest || isCopilotRequest || isCursorEditor || isVSCodeEditor else {
             Task.detached { [weak self] in
                 self?.sendLine(fd: fd, text: #"{"permissionDecision":"ask"}"#)
                 close(fd)
@@ -1852,6 +1878,102 @@ final class HookServer: @unchecked Sendable {
                                          options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
     }
 
+    // MARK: - Copilot hook installer  (#if !APPSTORE only)
+    // Copilot (VS Code agent mode / Copilot CLI) loads every *.json file from
+    // ~/.copilot/hooks/, so Coucou owns its own file instead of merging into a
+    // shared settings file: install = write coucou.json, uninstall = delete it.
+
+    static var copilotHooksURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".copilot/hooks/coucou.json")
+    }
+
+    /// True when ~/.copilot/hooks/coucou.json already routes Copilot events to Coucou's nb-hook.
+    static func copilotHooksInstalled() -> Bool {
+        guard let data = try? Data(contentsOf: copilotHooksURL),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let hooks = root["hooks"] as? [String: Any] else { return false }
+        for value in hooks.values {
+            guard let entries = value as? [[String: Any]] else { continue }
+            for entry in entries {
+                if let cmd = entry["command"] as? String,
+                   cmd.contains("nb-hook"), cmd.contains("--agent copilot") { return true }
+            }
+        }
+        return false
+    }
+
+    private var _pendingCopilotData: Data?
+    private var _pendingCopilotFingerprint: String?
+
+    func previewCopilotHooks(install: Bool) throws -> String {
+        let url = Self.copilotHooksURL
+        let exists = FileManager.default.fileExists(atPath: url.path)
+        if !install && !exists {
+            throw NSError(domain: "CoucouNoop", code: 0, userInfo: [
+                NSLocalizedDescriptionKey: "No Copilot hooks to remove."
+            ])
+        }
+        let current = exists ? try Data(contentsOf: url) : Data()
+        _pendingCopilotFingerprint = sha256Hex(current)
+        let newData = install ? try buildCopilotHooksData() : Data("".utf8)
+        _pendingCopilotData = newData
+        return String(data: newData, encoding: .utf8) ?? ""
+    }
+
+    func writeCopilotHooks() throws {
+        guard let data = _pendingCopilotData, let fp = _pendingCopilotFingerprint else { return }
+        let url = Self.copilotHooksURL
+        let current = (try? Data(contentsOf: url)) ?? Data()
+        guard sha256Hex(current) == fp else {
+            throw NSError(domain: "Coucou", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "~/.copilot/hooks/coucou.json changed since preview. Refresh and try again."
+            ])
+        }
+        if data.isEmpty {
+            // Uninstall: remove only Coucou's own file.
+            try? FileManager.default.removeItem(at: url)
+        } else {
+            try writeJSONFile(data, to: url, suffix: "coucou.json")
+        }
+        _pendingCopilotData = nil
+        _pendingCopilotFingerprint = nil
+    }
+
+    /// The hook file Coucou owns in ~/.copilot/hooks/.
+    /// Event names are PascalCase: payloads then use the VS Code-compatible
+    /// snake_case format nb-hook already speaks. Copilot re-reads the folder
+    /// at each new session, so no reload step is needed.
+    private func buildCopilotHooksData() throws -> Data {
+        let base = hookBase()
+        // Events in seconds. PermissionRequest holds the connection open while
+        // the user answers from the notch (Copilot default hook timeout is 30s).
+        let events: [(String, Int)] = [
+            ("SessionStart",        10),
+            ("UserPromptSubmit",    10),
+            ("PreToolUse",          10),
+            ("PostToolUse",         10),
+            ("PostToolUseFailure",  10),
+            ("Notification",        10),
+            ("PermissionRequest",  130),
+            ("Stop",                10),
+            ("ErrorOccurred",       10),
+            ("SubagentStart",       10),
+            ("SubagentStop",        10),
+        ]
+        var hooks: [String: Any] = [:]
+        for (event, timeout) in events {
+            hooks[event] = [[
+                "type": "command",
+                "command": "\(base) --agent copilot \(event)",
+                "timeoutSec": timeout,
+            ] as [String: Any]]
+        }
+        let root: [String: Any] = ["version": 1, "hooks": hooks]
+        return try JSONSerialization.data(withJSONObject: root,
+                                          options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+    }
+
     // MARK: SHA-256 fingerprint
 
     private func sha256Hex(_ data: Data) -> String {
@@ -1901,6 +2023,13 @@ def normalize_event(name):
         'BeforeAgent': 'UserPromptSubmit', 'AfterAgent': 'Stop',
         'startup': 'SessionStart', 'exit': 'SessionEnd',
         'PreInvocation': 'UserPromptSubmit', 'PostInvocation': 'PostToolUse',
+        # Copilot (VS Code Agent Host / Copilot CLI) — camelCase aliases
+        'agentStop': 'Stop', 'errorOccurred': 'StopFailure',
+        'userPromptSubmitted': 'UserPromptSubmit', 'postToolUseFailure': 'PostToolUseFailure',
+        'preCompact': 'PreCompact', 'sessionEnd': 'SessionEnd', 'sessionStart': 'SessionStart',
+        'preToolUse': 'PreToolUse', 'postToolUse': 'PostToolUse',
+        'subagentStart': 'SubagentStart', 'subagentStop': 'SubagentStop',
+        'notification': 'Notification', 'permissionRequest': 'PermissionRequest',
     }
     return mapping.get(name, name)
 
@@ -2096,7 +2225,18 @@ def main():
                     decision = resp_obj.get('permissionDecision', '')
                 except Exception:
                     decision = ''
-                if decision == 'allow':
+                if agent == 'copilot':
+                    # Copilot expects a flat decision, no hookSpecificOutput envelope
+                    if decision == 'allow':
+                        sys.stdout.write(json.dumps({'behavior': 'allow'}) + '\n')
+                        sys.stdout.flush()
+                        sys.exit(0)
+                    elif decision == 'deny':
+                        sys.stdout.write(json.dumps({'behavior': 'deny', 'message': 'Denied from Coucou'}) + '\n')
+                        sys.stdout.flush()
+                        sys.exit(0)
+                    # 'ask' or unknown: no output → Copilot shows its own prompt
+                elif decision == 'allow':
                     out = {'hookSpecificOutput': {'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'allow'}}}
                     sys.stdout.write(json.dumps(out) + '\\n')
                     sys.stdout.flush()
@@ -2168,6 +2308,13 @@ def normalize_event(name):
         'BeforeAgent': 'UserPromptSubmit', 'AfterAgent': 'Stop',
         'startup': 'SessionStart', 'exit': 'SessionEnd',
         'PreInvocation': 'UserPromptSubmit', 'PostInvocation': 'PostToolUse',
+        # Copilot (VS Code Agent Host / Copilot CLI) — camelCase aliases
+        'agentStop': 'Stop', 'errorOccurred': 'StopFailure',
+        'userPromptSubmitted': 'UserPromptSubmit', 'postToolUseFailure': 'PostToolUseFailure',
+        'preCompact': 'PreCompact', 'sessionEnd': 'SessionEnd', 'sessionStart': 'SessionStart',
+        'preToolUse': 'PreToolUse', 'postToolUse': 'PostToolUse',
+        'subagentStart': 'SubagentStart', 'subagentStop': 'SubagentStop',
+        'notification': 'Notification', 'permissionRequest': 'PermissionRequest',
     }
     return mapping.get(name, name)
 
@@ -2362,7 +2509,18 @@ def main():
                     decision = resp_obj.get('permissionDecision', '')
                 except Exception:
                     decision = ''
-                if decision == 'allow':
+                if agent == 'copilot':
+                    # Copilot expects a flat decision, no hookSpecificOutput envelope
+                    if decision == 'allow':
+                        sys.stdout.write(json.dumps({'behavior': 'allow'}) + '\n')
+                        sys.stdout.flush()
+                        sys.exit(0)
+                    elif decision == 'deny':
+                        sys.stdout.write(json.dumps({'behavior': 'deny', 'message': 'Denied from Coucou'}) + '\n')
+                        sys.stdout.flush()
+                        sys.exit(0)
+                    # 'ask' or unknown: no output → Copilot shows its own prompt
+                elif decision == 'allow':
                     out = {'hookSpecificOutput': {'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'allow'}}}
                     sys.stdout.write(json.dumps(out) + '\\n')
                     sys.stdout.flush()

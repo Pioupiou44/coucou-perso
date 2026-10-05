@@ -217,6 +217,12 @@ struct OverviewView: View {
                 NSWorkspace.shared.openApplication(at: url, configuration: .init(), completionHandler: nil)
             }
             #endif
+        case "agent_copilot":
+            // Copilot lives inside VS Code (Agent Host) or the Copilot CLI terminal
+            if let url = NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: "com.microsoft.VSCode") {
+                NSWorkspace.shared.openApplication(at: url, configuration: .init(), completionHandler: nil)
+            }
         case "agent_gemini", "agent_antigravity":
             #if !APPSTORE
             let terminalBundleIds = ["com.apple.Terminal", "com.googlecode.iterm2",
@@ -309,8 +315,8 @@ struct ApprovalView: View {
                     PrimaryButton("Allow") {
                         HookServer.shared.sendApprovalDecision("allow")
                     }
-                    // Codex rejects updatedPermissions, so "Always" is not offered
-                    if approval?.pillId != "agent_codex" {
+                    // Codex and Copilot reject updatedPermissions, so "Always" is not offered
+                    if approval?.pillId != "agent_codex" && approval?.pillId != "agent_copilot" {
                         SecondaryButton("Always") {
                             HookServer.shared.sendApprovalDecision("always")
                         }
@@ -1607,6 +1613,12 @@ struct IntegrationCardView: View {
             #else
             return false
             #endif
+        case "agent_copilot":
+            #if !APPSTORE
+            return HookServer.copilotHooksInstalled()
+            #else
+            return false
+            #endif
         case "agent_cursor", "agent_codex":
             return false  // coming soon
         case "integration_music":
@@ -1734,7 +1746,7 @@ struct IntegrationCardView: View {
                    : task.id == "integration_calcom"  ? appState.calcomError
                    : nil
         if let err = svcErr { return err }
-        let isHooks = task.id == "agent_gemini" || task.id == "agent_antigravity"
+        let isHooks = task.id == "agent_gemini" || task.id == "agent_antigravity" || task.id == "agent_copilot"
         let isAI    = ChatProvider(pillID: task.id) != nil
         if isConfigured {
             if isHooks { return "Hooks installed" }
@@ -1918,6 +1930,21 @@ struct IntegrationCardView: View {
                             .buttonStyle(.plain)
                         }
                         #endif
+                    } else if task.id == "agent_copilot" {
+                        // Copilot runs inside VS Code (Agent Host) or the Copilot CLI
+                        if NSWorkspace.shared.urlForApplication(
+                            withBundleIdentifier: "com.microsoft.VSCode") != nil {
+                            Button("Open VS Code") {
+                                if let url = NSWorkspace.shared.urlForApplication(
+                                    withBundleIdentifier: "com.microsoft.VSCode") {
+                                    NSWorkspace.shared.openApplication(at: url, configuration: .init(),
+                                                                       completionHandler: nil)
+                                }
+                            }
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(hex: task.color).opacity(0.85))
+                            .buttonStyle(.plain)
+                        }
                     } else if let provider = ChatProvider(pillID: task.id) {
                         if isConfigured {
                             Button("Chat with \(task.name)") {
@@ -1985,6 +2012,7 @@ struct IntegrationCardView: View {
                     if !isConfigured
                        && task.id != "agent_cursor"
                        && task.id != "agent_codex"
+                       && task.id != "agent_copilot"
                        && task.id != "integration_music" {
                         Button("Settings…") {
                             let section: String

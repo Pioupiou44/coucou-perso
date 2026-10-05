@@ -119,6 +119,38 @@ Coucou events automatically.
 
 `AfterModel` is not installed — it fires on every response chunk and would flood the island.
 
+### Copilot — VS Code agent mode & Copilot CLI (macOS)
+
+Coucou supports GitHub Copilot — the agent in VS Code (Agent Host) and Copilot CLI —
+via **Settings → Agents → Copilot Hooks → Install hooks**. Copilot loads every
+`*.json` file from `~/.copilot/hooks/`, so the installer writes Coucou's own
+`~/.copilot/hooks/coucou.json` (uninstall deletes only that file). Event names are
+PascalCase, which makes payloads use the VS Code-compatible snake_case format
+(`hook_event_name`, `session_id`, `tool_name`, `tool_input`) nb-hook already speaks.
+Permission requests get an Allow / Deny card in the notch; on timeout or if Coucou
+is closed, Copilot falls back to its own prompt. Hooks are read at session start,
+so restart the session after installing.
+
+| Copilot event | Canonical event |
+|---|---|
+| `SessionStart` | `SessionStart` |
+| `UserPromptSubmit` | `UserPromptSubmit` |
+| `PreToolUse` | `PreToolUse` |
+| `PostToolUse` | `PostToolUse` |
+| `PostToolUseFailure` | `PostToolUseFailure` |
+| `Notification` | `Notification` |
+| `PermissionRequest` | `PermissionRequest` |
+| `Stop` | `Stop` |
+| `ErrorOccurred` | `StopFailure` |
+| `SubagentStart` | `SubagentStart` |
+| `SubagentStop` | `SubagentStop` |
+
+The relay also accepts the camelCase event names used by Copilot CLI hooks
+(`agentStop` → `Stop`, `errorOccurred` → `StopFailure`, `userPromptSubmitted` →
+`UserPromptSubmit`, …). Copilot tool names map to Claude names in PascalCase
+(`Bash`, `Read`, `Write`, `Edit`, `Grep`, `Glob`, `WebFetch`, `WebSearch`), so the
+ticker and diffs work unchanged.
+
 ### Antigravity — `agy` (macOS)
 
 Coucou supports Antigravity out of the box via **Settings → Antigravity → Install hooks**.

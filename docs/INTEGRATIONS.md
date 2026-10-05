@@ -76,6 +76,41 @@ Demande l'autorisation Automatisation la première fois (normal).
 
 ---
 
+## 1a. Copilot (agent VS Code & Copilot CLI)
+
+**Pastille** : `agent_copilot` (Agents, build GitHub). Le dossier de la session apparaît comme nom de tâche, le défilé montre les outils (`Bash`, `Edit`, `Read`…).
+
+### Architecture
+```
+Copilot (VS Code Agent Host / Copilot CLI)
+  └─ hook commande ─► nb-hook --agent copilot <Event>
+                       └─ socket Unix ─► Coucou
+                       ◄─ décision {"behavior":"allow"/"deny"} (pour PermissionRequest)
+```
+- Copilot charge chaque `*.json` de `~/.copilot/hooks/` : Coucou écrit **son propre fichier** `~/.copilot/hooks/coucou.json` (installation = écriture du fichier, désinstallation = suppression). Pas de merge dans un fichier partagé.
+- Événements en **PascalCase** → payloads au format VS Code compatible snake_case (`hook_event_name`, `session_id`, `tool_name`, `tool_input`) — déjà le format du relais. Les alias camelCase du CLI (`agentStop`, `errorOccurred`, `userPromptSubmitted`…) sont traduits par le relais.
+- Les hooks sont lus **au démarrage de la session** : redémarrer la session après installation.
+
+### Approuver depuis le notch
+- `PermissionRequest` : le relais attend la décision (130 s max, réglable). Réponse Copilot attendue : `{"behavior":"allow"}` ou `{"behavior":"deny","message":"…"}` — sans enveloppe `hookSpecificOutput`.
+- Pas de réponse avant le délai, app fermée, ou carte fermée → aucune sortie → Copilot affiche son propre dialogue de permission.
+- « Toujours autoriser » n'est pas proposé (Copilot n'accepte pas les règles persistantes du hook) — Allow/Deny seulement.
+
+### Table de correspondance
+| Événement Copilot | Événement canonique |
+|---|---|
+| `SessionStart` | `SessionStart` |
+| `UserPromptSubmit` | `UserPromptSubmit` |
+| `PreToolUse` | `PreToolUse` |
+| `PostToolUse` / `PostToolUseFailure` | `PostToolUse` / `PostToolUseFailure` |
+| `Notification` | `Notification` |
+| `PermissionRequest` | `PermissionRequest` |
+| `Stop` | `Stop` |
+| `ErrorOccurred` | `StopFailure` |
+| `SubagentStart` / `SubagentStop` | `SubagentStart` / `SubagentStop` |
+
+---
+
 ## 1bis. Jauge de forfait Claude (statusLine)
 
 **Affichage** : petit pill dans l'en-tête de l'île (vue home uniquement) — plus de pastille dans le catalogue Active pills.  

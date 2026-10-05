@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Copilot support (GitHub build): the GitHub Copilot agent in VS Code and Copilot CLI gets its own pill — Settings → Agents → Copilot Hooks → Install hooks writes Coucou's own `~/.copilot/hooks/coucou.json`. Live ticker of tools and file edits, Allow / Deny cards for its permission requests, and Mochi's happy jump when the turn finishes. If Coucou is closed or you don't answer, Copilot falls back to its own prompt and nothing blocks
+
 ## 0.1.8 — October 5, 2026
 
 - Coucou on iPhone: turn on Settings → General → iPhone (off by default) and your agent sessions show up live in the Coucou iPhone app and its widgets, through your own private iCloud. Project names, commands and questions are encrypted with your iCloud keys; turning it off deletes them (#209, #211, #212, #213)
