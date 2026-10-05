@@ -2228,11 +2228,11 @@ def main():
                 if agent == 'copilot':
                     # Copilot expects a flat decision, no hookSpecificOutput envelope
                     if decision == 'allow':
-                        sys.stdout.write(json.dumps({'behavior': 'allow'}) + '\n')
+                        sys.stdout.write(json.dumps({'behavior': 'allow'}) + '\\n')
                         sys.stdout.flush()
                         sys.exit(0)
                     elif decision == 'deny':
-                        sys.stdout.write(json.dumps({'behavior': 'deny', 'message': 'Denied from Coucou'}) + '\n')
+                        sys.stdout.write(json.dumps({'behavior': 'deny', 'message': 'Denied from Coucou'}) + '\\n')
                         sys.stdout.flush()
                         sys.exit(0)
                     # 'ask' or unknown: no output → Copilot shows its own prompt
@@ -2512,11 +2512,11 @@ def main():
                 if agent == 'copilot':
                     # Copilot expects a flat decision, no hookSpecificOutput envelope
                     if decision == 'allow':
-                        sys.stdout.write(json.dumps({'behavior': 'allow'}) + '\n')
+                        sys.stdout.write(json.dumps({'behavior': 'allow'}) + '\\n')
                         sys.stdout.flush()
                         sys.exit(0)
                     elif decision == 'deny':
-                        sys.stdout.write(json.dumps({'behavior': 'deny', 'message': 'Denied from Coucou'}) + '\n')
+                        sys.stdout.write(json.dumps({'behavior': 'deny', 'message': 'Denied from Coucou'}) + '\\n')
                         sys.stdout.flush()
                         sys.exit(0)
                     # 'ask' or unknown: no output → Copilot shows its own prompt
