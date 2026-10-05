@@ -78,7 +78,7 @@ Demande l'autorisation Automatisation la première fois (normal).
 
 ## 1a. Copilot (agent VS Code & Copilot CLI)
 
-**Pastille** : `agent_copilot` (Agents, build GitHub). Le dossier de la session apparaît comme nom de tâche, le défilé montre les outils (`Bash`, `Edit`, `Read`…).
+**Pastille** : `agent_copilot` (Where you code, build GitHub) — pastille principale par défaut. Le dossier de la session apparaît comme nom de tâche, le défilé montre les outils (`Bash`, `Edit`, `Read`…).
 
 ### Architecture
 ```

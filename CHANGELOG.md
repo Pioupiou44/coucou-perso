@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Copilot support (GitHub build): the GitHub Copilot agent in VS Code and Copilot CLI gets its own pill — Settings → Agents → Copilot Hooks → Install hooks writes Coucou's own `~/.copilot/hooks/coucou.json`. Live ticker of tools and file edits and Mochi's happy jump when the turn finishes. No `PermissionRequest` hook: that event fires before VS Code's permission engine and would shadow the chat's approval mode (e.g. "Allow all") with a notch validation for every tool; VS Code's own prompts stay in charge of approvals
+- Copilot is the default main pill (GitHub build; the App Store build keeps VS Code) — it sits in "Where you code" next to Codex and Cursor, and its session card header says "Copilot"
 
 ## 0.1.8 — October 5, 2026
 
