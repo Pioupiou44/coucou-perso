@@ -127,9 +127,11 @@ via **Settings → Agents → Copilot Hooks → Install hooks**. Copilot loads e
 `~/.copilot/hooks/coucou.json` (uninstall deletes only that file). Event names are
 PascalCase, which makes payloads use the VS Code-compatible snake_case format
 (`hook_event_name`, `session_id`, `tool_name`, `tool_input`) nb-hook already speaks.
-Permission requests get an Allow / Deny card in the notch; on timeout or if Coucou
-is closed, Copilot falls back to its own prompt. Hooks are read at session start,
-so restart the session after installing.
+No `PermissionRequest` hook is installed: that event fires *before* VS Code's
+permission engine and would shadow the chat's own approval mode (e.g. "Allow
+all"). Coucou tracks activity (tools, diffs, states) through the other hooks;
+the notch approval card only appears when VS Code itself asks the user. Hooks
+are read at session start, so restart the session after installing.
 
 | Copilot event | Canonical event |
 |---|---|
@@ -139,7 +141,6 @@ so restart the session after installing.
 | `PostToolUse` | `PostToolUse` |
 | `PostToolUseFailure` | `PostToolUseFailure` |
 | `Notification` | `Notification` |
-| `PermissionRequest` | `PermissionRequest` |
 | `Stop` | `Stop` |
 | `ErrorOccurred` | `StopFailure` |
 | `SubagentStart` | `SubagentStart` |

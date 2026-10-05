@@ -1944,10 +1944,12 @@ final class HookServer: @unchecked Sendable {
     /// Event names are PascalCase: payloads then use the VS Code-compatible
     /// snake_case format nb-hook already speaks. Copilot re-reads the folder
     /// at each new session, so no reload step is needed.
+    /// No PermissionRequest entry: it fires before VS Code's permission engine,
+    /// which would shadow the chat's own approval mode (e.g. "Allow all").
+    /// Coucou shows the approval card only when VS Code itself asks the user.
     private func buildCopilotHooksData() throws -> Data {
         let base = hookBase()
-        // Events in seconds. PermissionRequest holds the connection open while
-        // the user answers from the notch (Copilot default hook timeout is 30s).
+        // Events in seconds.
         let events: [(String, Int)] = [
             ("SessionStart",        10),
             ("UserPromptSubmit",    10),
@@ -1955,7 +1957,6 @@ final class HookServer: @unchecked Sendable {
             ("PostToolUse",         10),
             ("PostToolUseFailure",  10),
             ("Notification",        10),
-            ("PermissionRequest",  130),
             ("Stop",                10),
             ("ErrorOccurred",       10),
             ("SubagentStart",       10),

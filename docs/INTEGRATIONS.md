@@ -85,16 +85,14 @@ Demande l'autorisation Automatisation la première fois (normal).
 Copilot (VS Code Agent Host / Copilot CLI)
   └─ hook commande ─► nb-hook --agent copilot <Event>
                        └─ socket Unix ─► Coucou
-                       ◄─ décision {"behavior":"allow"/"deny"} (pour PermissionRequest)
 ```
 - Copilot charge chaque `*.json` de `~/.copilot/hooks/` : Coucou écrit **son propre fichier** `~/.copilot/hooks/coucou.json` (installation = écriture du fichier, désinstallation = suppression). Pas de merge dans un fichier partagé.
 - Événements en **PascalCase** → payloads au format VS Code compatible snake_case (`hook_event_name`, `session_id`, `tool_name`, `tool_input`) — déjà le format du relais. Les alias camelCase du CLI (`agentStop`, `errorOccurred`, `userPromptSubmitted`…) sont traduits par le relais.
 - Les hooks sont lus **au démarrage de la session** : redémarrer la session après installation.
 
-### Approuver depuis le notch
-- `PermissionRequest` : le relais attend la décision (130 s max, réglable). Réponse Copilot attendue : `{"behavior":"allow"}` ou `{"behavior":"deny","message":"…"}` — sans enveloppe `hookSpecificOutput`.
-- Pas de réponse avant le délai, app fermée, ou carte fermée → aucune sortie → Copilot affiche son propre dialogue de permission.
-- « Toujours autoriser » n'est pas proposé (Copilot n'accepte pas les règles persistantes du hook) — Allow/Deny seulement.
+### Permissions
+- **Aucun hook `PermissionRequest` n'est installé** : cet événement se déclenche *avant* le moteur de permissions de VS Code et court-cuiterait le mode d'approbation du chat (ex. « Allow all »), imposant une validation notch pour chaque outil.
+- Coucou suit l'activité (outils, diffs, états) via les autres hooks ; la carte d'approbation du notch n'apparaît que si VS Code demande lui-même une confirmation (dialogue natif).
 
 ### Table de correspondance
 | Événement Copilot | Événement canonique |
@@ -104,7 +102,6 @@ Copilot (VS Code Agent Host / Copilot CLI)
 | `PreToolUse` | `PreToolUse` |
 | `PostToolUse` / `PostToolUseFailure` | `PostToolUse` / `PostToolUseFailure` |
 | `Notification` | `Notification` |
-| `PermissionRequest` | `PermissionRequest` |
 | `Stop` | `Stop` |
 | `ErrorOccurred` | `StopFailure` |
 | `SubagentStart` / `SubagentStop` | `SubagentStart` / `SubagentStop` |

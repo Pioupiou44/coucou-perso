@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Copilot support (GitHub build): the GitHub Copilot agent in VS Code and Copilot CLI gets its own pill — Settings → Agents → Copilot Hooks → Install hooks writes Coucou's own `~/.copilot/hooks/coucou.json`. Live ticker of tools and file edits, Allow / Deny cards for its permission requests, and Mochi's happy jump when the turn finishes. If Coucou is closed or you don't answer, Copilot falls back to its own prompt and nothing blocks
+- Copilot support (GitHub build): the GitHub Copilot agent in VS Code and Copilot CLI gets its own pill — Settings → Agents → Copilot Hooks → Install hooks writes Coucou's own `~/.copilot/hooks/coucou.json`. Live ticker of tools and file edits and Mochi's happy jump when the turn finishes. No `PermissionRequest` hook: that event fires before VS Code's permission engine and would shadow the chat's approval mode (e.g. "Allow all") with a notch validation for every tool; VS Code's own prompts stay in charge of approvals
 
 ## 0.1.8 — October 5, 2026
 
