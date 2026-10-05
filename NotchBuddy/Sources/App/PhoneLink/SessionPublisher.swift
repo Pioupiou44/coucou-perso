@@ -176,13 +176,11 @@ struct SessionSnapshot: Equatable {
         var result: [String: SessionSnapshot] = [:]
         // Services (Stripe, GitHub…) go through ServicePublisher, with their data.
         for task in tasks where task.source != .n8n && PillCatalog.isSession(task.id) {
-            // Conversation pills are ephemeral: publish them while they are
-            // active, and for 10 minutes after they went quiet — so the phone
-            // keeps showing a just-finished conversation instead of dropping
-            // it between turns. Older ones leave the team.
-            if task.id.hasPrefix("agent_copilot_") && task.state == .idle {
-                let quiet = Date().timeIntervalSince(task.lastActivity ?? .distantPast)
-                if quiet > 10 * 60 { continue }
+            // Conversation pills stay published while they exist on the Mac —
+            // no time limit: the user can pick a chat back up hours later and
+            // it is still on the phone (dropped when the conversation ends).
+            if task.id.hasPrefix("agent_copilot_") && task.state == .idle && task.lastActivity == nil {
+                continue   // never started: don't publish a phantom
             }
             let hasApproval = approval?.pillId == task.id
             let questionText = task.state == .question

@@ -121,7 +121,13 @@ final class InstructionRunner {
         let isCopilotPill = pillId.hasPrefix("agent_copilot_")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = ["-p", text, "--resume", sessionId]
+        if isCopilotPill {
+            // The user already approved this instruction with Face ID on the
+            // iPhone; headless CLI has nobody to ask, file tools would fail.
+            process.arguments = ["-p", text, "--resume", sessionId, "--allow-all-tools"]
+        } else {
+            process.arguments = ["-p", text, "--resume", sessionId]
+        }
         process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         var env = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser.path

@@ -320,9 +320,9 @@ final class LiveActivityRelay {
     nonisolated static func leadState(tasks: [AgentTask], approval: ApprovalInfo?) -> MochiActivityState? {
         let ranked = tasks
             .filter { $0.source != .n8n && PillCatalog.isSession($0.id) }   // same sessions as SessionPublisher
-            .filter { task in  // conversations: active, or quiet for less than 10 minutes
+            .filter { task in  // conversations: published while they exist on the Mac (no time limit)
                 guard task.id.hasPrefix("agent_copilot_") && task.state == .idle else { return true }
-                return Date().timeIntervalSince(task.lastActivity ?? .distantPast) <= 10 * 60
+                return task.lastActivity != nil   // skip never-started phantoms
             }
             .map { task -> (AgentTask, Int) in
                 let urgency = MochiActivityState.urgency(state: task.state,
