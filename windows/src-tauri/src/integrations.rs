@@ -93,7 +93,7 @@ where
             ticker.tick().await;
             // The ticker keeps its cadence; we just decline to do the work. An
             // integration the user switched off, or a paused app, must make no
-            // network calls at all — CLAUDE.md allows talking only to services
+            // network calls at all — AGENTS.md allows talking only to services
             // the user configured, and a disabled one is not configured.
             if PAUSED.load(Ordering::Relaxed) || !enabled(&app, id) {
                 continue;

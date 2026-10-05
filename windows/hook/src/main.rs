@@ -4,7 +4,7 @@
 //! Coucou over the named pipe `\\.\pipe\coucou-<sid>` (Windows) or the Unix
 //! socket `$XDG_RUNTIME_DIR/coucou.sock` (Linux).
 //!
-//! Hard rule (docs/CLAUDE.md): **never block Claude Code.**
+//! Hard rule (AGENTS.md): **never block Claude Code.**
 //! * If the pipe does not exist — Coucou is closed — we exit 0 immediately with
 //!   nothing on stdout, and the session carries on untouched.
 //! * Every step runs under a deadline enforced by the main thread, so a pipe that
