@@ -474,6 +474,7 @@ final class HookServer: @unchecked Sendable {
                 upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd)
             }
             state.updateTask(id: agentId, state: .working)
+            if isCopilotEvent { scheduleWorkingWatchdog(pillId: agentId) }
             let input = payload["tool_input"] as? [String: Any] ?? [:]
             let step = frenchStep(tool: tool, input: input)
             appendStep(id: agentId, step: step)
@@ -481,6 +482,7 @@ final class HookServer: @unchecked Sendable {
 
         case "PostToolUse":
             state.updateTask(id: agentId, state: .working)
+            if isCopilotEvent { scheduleWorkingWatchdog(pillId: agentId) }
             // Live diff for Edit / MultiEdit / Write
             let diffTool = payload["tool_name"] as? String ?? ""
             let diffInput = payload["tool_input"] as? [String: Any] ?? [:]
@@ -492,6 +494,7 @@ final class HookServer: @unchecked Sendable {
 
         case "PostToolUseFailure":
             state.updateTask(id: agentId, state: .working)
+            if isCopilotEvent { scheduleWorkingWatchdog(pillId: agentId) }
             appendStep(id: agentId, step: "⚠ failed")
 
         case "Notification":
@@ -506,6 +509,7 @@ final class HookServer: @unchecked Sendable {
             }
 
         case "Stop":
+            workingWatchdogs[agentId]?.cancel(); workingWatchdogs[agentId] = nil
             state.updateTask(id: agentId, state: .finished)
             let rawFinal = (payload["last_assistant_message"] as? String)
                 ?? (payload["message"] as? String) ?? ""
@@ -617,6 +621,26 @@ final class HookServer: @unchecked Sendable {
             state.clearSessionDiffs(for: task.id)
             state.removeTask(id: task.id)
         }
+    }
+
+    /// Copilot emits no hook when the user hits Stop in VS Code — the turn just dies.
+    /// Without a Stop event the pill would stay "…" forever. So every "working" state
+    /// arms a watchdog: if the pill is still working 120 s later with no new event, it
+    /// means the turn was interrupted (or the runtime died) — back to idle.
+    @MainActor
+    private func scheduleWorkingWatchdog(pillId: String) {
+        workingWatchdogs[pillId]?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let state = AppState.shared
+            guard let idx = state.tasks.firstIndex(where: { $0.id == pillId }),
+                  state.tasks[idx].state == .working else { return }
+            state.tasks[idx].state = .idle
+            state.syncMode()
+            self.nbLog("Working watchdog fired for \(pillId) — interrupted turn")
+        }
+        workingWatchdogs[pillId] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120, execute: work)
     }
 
     /// Validates a coucou_agent name: lowercase, digits and hyphens, 1–24 chars.
@@ -1990,6 +2014,8 @@ final class HookServer: @unchecked Sendable {
 
     private var _pendingCopilotData: Data?
     private var _pendingCopilotFingerprint: String?
+    /// Pending per-pill "still working?" checks — see scheduleWorkingWatchdog.
+    @MainActor private var workingWatchdogs: [String: DispatchWorkItem] = [:]
 
     func previewCopilotHooks(install: Bool) throws -> String {
         let url = Self.copilotHooksURL
