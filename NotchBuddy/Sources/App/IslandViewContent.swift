@@ -4412,8 +4412,11 @@ struct AgentWho: View {
             if let task = task {
                 Circle().fill(Color(hex: task.color)).frame(width: 8, height: 8)
                 Text(task.name).font(.system(size: 12, weight: .semibold)).foregroundColor(Color(hex: "#F5F6F8"))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             Text(label).font(.system(size: 12)).foregroundColor(Color(hex: "#8E939C"))
+                .fixedSize()
         }
     }
 }

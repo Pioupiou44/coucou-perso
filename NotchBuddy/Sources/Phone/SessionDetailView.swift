@@ -73,6 +73,8 @@ struct SessionDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(session.pillName) · \(session.title)")
                     .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(session.statusText)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(session.statusColor)
