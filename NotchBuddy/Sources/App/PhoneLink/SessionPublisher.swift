@@ -180,9 +180,14 @@ struct SessionSnapshot: Equatable {
             let questionText = task.state == .question
                 ? (question?.questions.map(\.question).joined(separator: "\n") ?? "")
                 : ""
+            // Conversation pills are named "Copilot · <project>" — the iPhone already shows
+            // the pill name, so publish just the project to avoid "Copilot · Copilot · …".
+            let publishedName = task.id.hasPrefix("agent_copilot_")
+                ? String(task.name.dropFirst("Copilot · ".count))
+                : task.name
             result[task.id] = SessionSnapshot(
                 pillId: task.id,
-                name: task.name,
+                name: publishedName,
                 color: task.color,
                 state: task.state.rawValue,
                 stepIndex: task.stepIndex,

@@ -331,7 +331,9 @@ final class LiveActivityRelay {
         let others = ranked.filter { $0.0.id != task.id && $0.1 <= 3 }.count
         return MochiActivityState(
             pillId: task.id,
-            agent: PillCatalog.definition(for: task.id)?.name ?? "Agent",
+            agent: task.id.hasPrefix("agent_copilot_")
+                ? "Copilot"   // conversation pills: definition is nil, avoid "Agent"
+                : (PillCatalog.definition(for: task.id)?.name ?? "Agent"),
             color: task.color,
             state: (urgency == 0 ? BotState.approval : task.state).rawValue,
             statusText: MochiActivityState.statusText(state: task.state, urgency: urgency,

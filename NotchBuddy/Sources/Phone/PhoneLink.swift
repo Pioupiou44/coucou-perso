@@ -53,7 +53,12 @@ struct SessionItem: Identifiable {
         macName = record["macName"] as? String ?? ""
     }
 
-    var pillName: String { PillCatalog.definition(for: id)?.name ?? id }
+    var pillName: String {
+        if let def = PillCatalog.definition(for: id) { return def.name }
+        // Conversation pills (agent_copilot_<session>): the pill is Copilot, the title says the project.
+        if id.hasPrefix("agent_copilot_") { return "Copilot" }
+        return id
+    }
     var currentStep: String? { steps.indices.contains(stepIndex) ? steps[stepIndex] : steps.last }
 }
 

@@ -37,9 +37,16 @@ struct PillDefinition {
         case "integration_claude": return "Claude Code"
         case "agent_cursor":       return "Cursor"
         case "agent_codex":        return "Codex"
-        case "agent_copilot":      return "Copilot"
         default:                   return "Agent"
         }
+    }
+
+    /// The harness an agent pill runs in, shown next to the session name.
+    /// Copilot pills are named "Copilot · <project>", so the subtitle says where it runs
+    /// instead of repeating "Copilot" (the card header showed "Copilot Copilot").
+    static func sessionHarness(for id: String) -> String {
+        if id.hasPrefix("agent_copilot") { return "VS Code" }
+        return definition(for: id)?.sessionSubtitle ?? "Agent"
     }
 }
 
