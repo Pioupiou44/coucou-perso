@@ -105,9 +105,8 @@ final class TurnRecorder {
         case "UserPromptSubmit":
             // Close the previous turn in the thread before a new one starts.
             var previous = turns[pillId]
-            if let prev = previous, prev.endedAt != nil {
-                prev.appendToHistory(Self.slim(prev), replaceLast: false)
-                previous = prev
+            if previous?.endedAt != nil {
+                previous!.appendToHistory(Self.slim(previous!), replaceLast: false)
             }
             var turn = previous ?? TurnSnapshot(pillId: pillId, sessionId: sessionId,
                                                 project: URL(fileURLWithPath: cwd).lastPathComponent,
