@@ -179,6 +179,7 @@ struct ThreadView: View {
         VStack(alignment: .leading, spacing: 16) {
             ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                 ExchangeView(entry: entry, isLast: index == entries.count - 1,
+                             working: working,
                              expanded: expandedActions.contains(entry.startedAt)) {
                     toggle(entry.startedAt)
                 }
@@ -196,6 +197,7 @@ struct ThreadView: View {
 private struct ExchangeView: View {
     let entry: TurnSnapshot.TurnEntry
     let isLast: Bool
+    let working: Bool
     let expanded: Bool
     let onToggle: () -> Void
 
