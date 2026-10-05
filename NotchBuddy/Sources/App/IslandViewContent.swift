@@ -3747,24 +3747,30 @@ struct AgentPill: View {
                               : Color(hex: "#0E0F11"))
                     Capsule()
                         .stroke(Color(hex: effectiveColor).opacity(isHovered ? 0.55 : 0.14), lineWidth: 1)
-                    HStack(spacing: 0) {
+                    // Icon and name in one HStack (not an icon-row + a separately
+                    // centered Text overlay): that's what lets SwiftUI actually
+                    // shrink/truncate the name instead of letting it paint past
+                    // the capsule for long conversation names like "Copilot · …".
+                    HStack(spacing: 4) {
                         MiniBotCanvasView(task: task)
                             .frame(width: 22 / 0.6, height: 22 / 0.6)
                             .frame(width: 22, height: 22, alignment: .center)
-                            .padding(.leading, 8)
-                        Spacer()
+                        Text(displayName)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(isHovered
+                                             ? Color(hex: effectiveColor).lighter(by: 0.3)
+                                             : Color(hex: "#6B7079"))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .layoutPriority(-1)
                     }
-                    Text(displayName)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(isHovered
-                                         ? Color(hex: effectiveColor).lighter(by: 0.3)
-                                         : Color(hex: "#6B7079"))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.leading, 8)
+                    .padding(.trailing, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 28)
+                .clipShape(Capsule())
                 .shadow(color: Color(hex: effectiveColor).opacity(isHovered ? 0.35 : 0), radius: 10, x: 0, y: 2)
 
                 // Alert badge (approval / finished / error)
