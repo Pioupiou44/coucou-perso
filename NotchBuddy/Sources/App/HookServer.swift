@@ -46,6 +46,8 @@ final class HookServer: @unchecked Sendable {
     private var focusBeforeQuestion: String? = nil    // saved focus to restore after question
     private var activeSessionId: String? = nil        // current Claude Code session
     private var focusBeforeApproval: String? = nil    // saved focus to restore after approval
+    /// Pending per-pill "still working?" checks — see scheduleWorkingWatchdog.
+    @MainActor private var workingWatchdogs: [String: DispatchWorkItem] = [:]
 
     private init() {}
 
@@ -2014,8 +2016,6 @@ final class HookServer: @unchecked Sendable {
 
     private var _pendingCopilotData: Data?
     private var _pendingCopilotFingerprint: String?
-    /// Pending per-pill "still working?" checks — see scheduleWorkingWatchdog.
-    @MainActor private var workingWatchdogs: [String: DispatchWorkItem] = [:]
 
     func previewCopilotHooks(install: Bool) throws -> String {
         let url = Self.copilotHooksURL
