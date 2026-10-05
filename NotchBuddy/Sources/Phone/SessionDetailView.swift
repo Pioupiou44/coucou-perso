@@ -101,12 +101,6 @@ struct SessionDetailView: View {
         .navigationTitle(session?.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await link.refresh() }
-        .confirmationDialog("Terminer cette conversation ?", isPresented: confirmBinding, titleVisibility: .visible) {
-            Button("Terminer la conversation", role: .destructive) { link.endConversation(pillId: sessionId) }
-            Button("Annuler", role: .cancel) {}
-        } message: {
-            Text("Le Mochi quitte votre iPhone. La discussion reste dans votre chat VS Code.")
-        }
     }
 
     /// Explicit « stop the conversation » — the user decides, the Mac only
@@ -125,6 +119,14 @@ struct SessionDetailView: View {
         }
         .buttonStyle(.bordered)
         .tint(.secondary)
+        // Anchored on the button itself (not up on the scroll container):
+        // the sheet now opens from where you tapped, not from the top.
+        .confirmationDialog("Terminer cette conversation ?", isPresented: confirmBinding, titleVisibility: .visible) {
+            Button("Terminer la conversation", role: .destructive) { link.endConversation(pillId: sessionId) }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Le Mochi quitte votre iPhone. La discussion reste dans votre chat VS Code.")
+        }
     }
 
     private func header(_ session: SessionItem) -> some View {
