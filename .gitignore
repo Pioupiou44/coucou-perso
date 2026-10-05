@@ -11,6 +11,7 @@ DerivedData/
 # macOS
 .DS_Store
 .AppleDouble
+._*
 .LSOverride
 
 # iCloud stubs
