@@ -44,13 +44,44 @@ struct TurnSnapshot: Codable, Equatable, Sendable {
     var finalMessage: String
     var startedAt: Date
     var endedAt: Date?
+    /// The conversation thread, oldest first: the latest `maxHistory` turns,
+    /// including turns launched by iPhone instructions. The top-level fields
+    /// mirror the LAST entry (older readers show the current turn as before).
+    var history: [TurnEntry] = []
 
     static let recordType = "Turn"
+    /// How many past turns the thread keeps per session.
+    static let maxHistory = 10
 
     static func recordName(for pillId: String) -> String { "turn-\(pillId)" }
 
     static func pillId(fromRecordName name: String) -> String? {
         name.hasPrefix("turn-") ? String(name.dropFirst("turn-".count)) : nil
+    }
+
+    /// One exchange in the thread: what was asked, what the agent did, what it answered.
+    struct TurnEntry: Codable, Equatable, Sendable {
+        var prompt: String
+        var actions: [TurnAction]
+        var files: [TurnFile]
+        var finalMessage: String
+        var startedAt: Date
+        var endedAt: Date?
+        /// The prompt came from the iPhone (Face ID instruction) instead of the editor.
+        var fromiPhone: Bool = false
+    }
+
+    /// Appends a finished exchange to the thread, dropping the oldest past the cap.
+    /// `replaceLast` overwrites the last entry when it is the same turn still running.
+    mutating func appendToHistory(_ entry: TurnEntry, replaceLast: Bool) {
+        if replaceLast, entry.startedAt == history.last?.startedAt, let last = history.last, last.endedAt == nil {
+            history[history.count - 1] = entry
+        } else {
+            history.append(entry)
+        }
+        if history.count > TurnSnapshot.maxHistory {
+            history.removeFirst(history.count - TurnSnapshot.maxHistory)
+        }
     }
 }
 

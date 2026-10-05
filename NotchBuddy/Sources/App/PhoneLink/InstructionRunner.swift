@@ -118,6 +118,7 @@ final class InstructionRunner {
     // MARK: Running
 
     private func run(executable: String, text: String, sessionId: String, cwd: String, pillId: String) {
+        let startedAt = Date()
         let isCopilotPill = pillId.hasPrefix("agent_copilot_")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -157,12 +158,21 @@ final class InstructionRunner {
         process.terminationHandler = { [weak self] finished in
             try? output?.close()
             let data = (try? Data(contentsOf: logURL)) ?? Data()
+            let text = String(decoding: data, as: UTF8.self)
             let tail = String(decoding: data.suffix(400), as: UTF8.self)
                 .replacingOccurrences(of: "\n", with: " ")
             let status = finished.terminationStatus
             Task { @MainActor in
                 self?.running[sessionId] = nil
                 self?.log(status == 0 ? "finished (\(sessionId.prefix(8)))" : "ended with \(status): \(tail)")
+                // The answer reaches the phone as a thread message: the
+                // instruction (asked from the iPhone) and what the agent
+                // answered. Copilot prints the final message between the
+                // last tool block and the summary footer; take everything
+                // before the footer, dropping leading tool blocks.
+                let answer = Self.finalAnswer(from: text)
+                self?.recordAnswer(pillId: pillId, instruction: text,
+                                   answer: answer, failed: status != 0, startedAt: startedAt)
             }
         }
         do {
@@ -172,6 +182,32 @@ final class InstructionRunner {
         } catch {
             log("couldn't start the agent: \(error.localizedDescription)")
         }
+    }
+
+    /// Appends the iPhone-asked exchange to the session's thread so the phone
+    /// shows the answer as a chat message. The hooks already recorded the
+    /// agent's own turn; this closes it with the instruction as the prompt.
+    @MainActor
+    private func recordAnswer(pillId: String, instruction: String, answer: String, failed: Bool, startedAt: Date) {
+        // The turn's real prompt was the instruction sent from the phone.
+        TurnRecorder.shared.recordInstructionTurn(pillId: pillId, prompt: instruction,
+                                                 answer: failed ? "The instruction failed on the Mac." : answer,
+                                                 startedAt: startedAt)
+    }
+
+    /// Copilot's headless output ends with a footer (Changes/AI Credits/…).
+    /// The final answer is everything after the last tool block (● …)
+    /// and before that footer.
+    nonisolated static func finalAnswer(from output: String) -> String {
+        guard !output.isEmpty else { return "" }
+        var lines = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        // Drop the footer: from the line that is empty followed by "Changes …" / ends with a "Resume …" hint.
+        if let footerIdx = lines.firstIndex(where: { $0.hasPrefix("Changes") || $0.hasPrefix("AI Credits") || $0.hasPrefix("Tokens") || $0.hasPrefix("Resume") }) {
+            lines = Array(lines[..<footerIdx])
+        }
+        // Drop trailing empty lines.
+        while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty { lines.removeLast() }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Where `claude` usually lives; the app doesn't get the shell's PATH.

@@ -34,6 +34,45 @@ final class TurnRecorder {
         guard let info = sessions[pillId], !info.sessionId.isEmpty, !info.cwd.isEmpty else { return nil }
         return info
     }
+
+    /// An instruction sent from the iPhone finished: its answer becomes the
+    /// closing exchange of the thread (prompt = the instruction, marked
+    /// fromiPhone so the phone shows it as sent from there).
+    func recordInstructionTurn(pillId: String, prompt: String, answer: String, startedAt: Date) {
+        guard running else { return }
+        var turn = current(pillId, sessionId: "", cwd: "")
+        let entry = TurnSnapshot.TurnEntry(prompt: String(prompt.prefix(8000)),
+                                           actions: [], files: [],
+                                           finalMessage: String(answer.prefix(12_000)),
+                                           startedAt: startedAt, endedAt: Date(),
+                                           fromiPhone: true)
+        turn.appendToHistory(entry, replaceLast: false)
+        // Keep the top-level fields mirroring the thread's last exchange.
+        turn.prompt = entry.prompt
+        turn.actions = []
+        turn.files = []
+        turn.finalMessage = entry.finalMessage
+        turn.startedAt = startedAt
+        turn.endedAt = entry.endedAt
+        turns[pillId] = turn
+        dirty.insert(pillId)
+        scheduleFlush(soon: true)
+    }
+
+    /// A turn archived to the thread keeps the conversation light: prompts
+    /// and answers in full, at most 20 actions with no command output and
+    /// no diffs — so ten exchanges stay far below CloudKit's 1 MB record.
+    private static func slim(_ turn: TurnSnapshot) -> TurnSnapshot.TurnEntry {
+        let actions = turn.actions.prefix(20).map { action in
+            var a = action
+            a.output = ""
+            a.fileIndex = nil
+            return a
+        }
+        return TurnSnapshot.TurnEntry(prompt: turn.prompt, actions: actions, files: [],
+                                      finalMessage: String(turn.finalMessage.prefix(6000)),
+                                      startedAt: turn.startedAt, endedAt: turn.endedAt)
+    }
     private var sessions: [String: (sessionId: String, cwd: String)] = [:]
 
     func start() {
@@ -64,11 +103,19 @@ final class TurnRecorder {
 
         switch event {
         case "UserPromptSubmit":
-            let prompt = payload["prompt"] as? String ?? ""
-            turns[pillId] = TurnSnapshot(pillId: pillId, sessionId: sessionId,
-                                         project: URL(fileURLWithPath: cwd).lastPathComponent,
-                                         prompt: String(prompt.prefix(8000)), actions: [], files: [],
-                                         finalMessage: "", startedAt: now, endedAt: nil)
+            // Close the previous turn in the thread before a new one starts.
+            var previous = turns[pillId]
+            if let prev = previous, prev.endedAt != nil {
+                prev.appendToHistory(Self.slim(prev), replaceLast: false)
+                previous = prev
+            }
+            var turn = previous ?? TurnSnapshot(pillId: pillId, sessionId: sessionId,
+                                                project: URL(fileURLWithPath: cwd).lastPathComponent,
+                                                prompt: "", actions: [], files: [],
+                                                finalMessage: "", startedAt: now, endedAt: nil)
+            turn.prompt = String((payload["prompt"] as? String ?? "").prefix(8000))
+            turn.actions = []; turn.files = []; turn.finalMessage = ""; turn.startedAt = now; turn.endedAt = nil
+            turns[pillId] = turn
 
         case "PreToolUse":
             let tool = payload["tool_name"] as? String ?? "Tool"
@@ -107,6 +154,9 @@ final class TurnRecorder {
             let final = (payload["last_assistant_message"] as? String) ?? (payload["message"] as? String) ?? ""
             turn.finalMessage = String(final.prefix(maxFinal))
             turn.endedAt = now
+            // Snapshot the finished exchange into the thread too, so the
+            // phone shows it even before the next turn starts.
+            turn.appendToHistory(Self.slim(turn), replaceLast: true)
             turns[pillId] = turn
 
         default:
