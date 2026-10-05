@@ -1,10 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.1.9 — October 5, 2026
 
 - Copilot support (GitHub build): the GitHub Copilot agent in VS Code and Copilot CLI gets its own pill — Settings → Agents → Copilot Hooks → Install hooks writes Coucou's own `~/.copilot/hooks/coucou.json`. Live ticker of tools and file edits and Mochi's happy jump when the turn finishes. No `PermissionRequest` hook: that event fires before VS Code's permission engine and would shadow the chat's approval mode (e.g. "Allow all") with a notch validation for every tool; VS Code's own prompts stay in charge of approvals
 - Copilot is the default main pill (GitHub build; the App Store build keeps VS Code) — it sits in "Where you code" next to Codex and Cursor, and its session card header says "Copilot"
 - One pill per Copilot conversation: parallel VS Code chats get their own pill ("Copilot · <project>", max 3, swept after 15 min idle or on SessionEnd) instead of overwriting each other; the hook file now installs SessionEnd too
+- A 120 s watchdog: Copilot emits no hook when you press Stop in VS Code, so pills used to stay "…" until the app restarted — interrupted turns now go back to idle on their own
+- The Mochi chat follows your agents: "where is coucou-perso?" now answers with the live steps, files and last message of the sessions the notch is watching
+- iPhone: conversations become a chat thread — the last 10 exchanges (your prompts, the agent's actions folded into one tap, its answers), auto-scrolled to the latest; instructions you dictate get their answer back in the thread
+- iPhone: a "Terminer la conversation" button under the composer ends a Copilot session on your terms — confirmation, then the pill drops on the Mac too; the VS Code chat isn't closed
+- iPhone: the composer stays pinned above the keyboard while the thread scrolls behind it, and mic + send shrink to keep the room for your text
+- Copilot runs from the iPhone turn with `--allow-all-tools`: the Face ID approval already happened, and the headless CLI has nobody to ask
+- Fixed: the Copilot hook relay produced a corrupted Python script (a `'\n'` written as a real newline), so no Copilot event ever reached the app
+- Fixed: "Copilot · Copilot" — the session card no longer doubles the pill name (the subtitle says where the agent runs), iPhone rows show "coucou-perso" instead of the raw pill id, and long names truncate with "…"
+
+## 0.1.8 — October 5, 2026
 
 ## 0.1.8 — October 5, 2026
 

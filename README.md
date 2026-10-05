@@ -69,6 +69,7 @@ macOS releases are published as `v*` tags. See [CHANGELOG.md](CHANGELOG.md) for 
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [0.1.9](https://github.com/Pioupiou44/coucou-perso/releases/tag/v0.1.9) | Oct 5, 2026 | GitHub Copilot hooks, one Mochi per conversation, iPhone chat thread with "end conversation" |
 | [0.1.8](https://github.com/Louis-CFM/coucou/releases/tag/v0.1.8) | Oct 5, 2026 | Coucou on iPhone: sessions, widgets, approvals with Face ID, Mochi in the Dynamic Island |
 | [0.1.7](https://github.com/Louis-CFM/coucou/releases/tag/v0.1.7) | Oct 4, 2026 | Keyboard shortcuts |
 | [0.1.6](https://github.com/Louis-CFM/coucou/releases/tag/v0.1.6) | Oct 4, 2026 | Mochi on the desktop |

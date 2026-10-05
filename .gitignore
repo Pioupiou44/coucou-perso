@@ -20,3 +20,4 @@ DerivedData/
 # Local only (never published)
 .claude/
 _prive/
+.build-tmp/
