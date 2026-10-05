@@ -71,6 +71,7 @@ final class InstructionRunner {
                         switch mod.record.recordType {
                         case "Instruction": found.append(mod.record)
                         case "EndConversation": ended.append((mod.record.recordID, mod.record["pillId"] as? String ?? ""))
+                        default: break
                         }
                     }
                 }
