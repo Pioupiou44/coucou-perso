@@ -210,6 +210,22 @@ final class ClaudeService {
         """
     }
 
+    /// System prompt enriched with the live agent sessions Coucou is watching.
+    /// Mochi is the one tracking those sessions — when the user asks "where is my agent?",
+    /// "what did it just do?", "summarize the other conversation", answer from this state.
+    /// Built fresh on every turn so progress stays current.
+    private func makeLiveSystemPrompt(state: AppState) -> String {
+        let sessions = state.agentSessionsSummary()
+        guard !sessions.isEmpty else { return systemPrompt }
+        return systemPrompt + "\n\n" + """
+        You are also watching the user's coding agent sessions live from the notch. \
+        When they ask about an agent's progress, what it is doing, what it just did or finished, \
+        answer from this live state (most recent steps last), in the user's language:
+
+        \(sessions)
+        """
+    }
+
     private let webSearchTools: [[String: Any]] = [
         ["type": "web_search_20250305", "name": "web_search", "max_uses": 5]
     ]
@@ -251,7 +267,7 @@ final class ClaudeService {
             "model": model,
             "max_tokens": 4096,
             "tools": webSearchTools,
-            "system": systemPrompt,
+            "system": makeLiveSystemPrompt(state: state),
             "messages": conversationMessages,
         ]
 
@@ -305,7 +321,7 @@ final class ClaudeService {
         }
 
         // Build messages
-        var msgs: [[String: Any]] = [["role": "system", "content": systemPrompt]]
+        var msgs: [[String: Any]] = [["role": "system", "content": makeLiveSystemPrompt(state: state)]]
         for m in conversationMessages {
             var simplified = m
             if let content = m["content"] as? [[String: Any]],

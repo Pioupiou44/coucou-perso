@@ -359,6 +359,36 @@ final class AppState: ObservableObject {
         // nextDiffId intentionally NOT reset — ids remain unique across sessions
     }
 
+    /// One line per watched agent session (live state for the Mochi chat).
+    /// Session pills only (VS Code, Cursor, Codex, Copilot conversations…),
+    /// idle main pills excluded, capped at 5 lines with the 6 last steps each.
+    func agentSessionsSummary() -> String {
+        let label: [String: String] = [
+            .working: "working", .thinking: "thinking", .approval: "waiting for approval",
+            .question: "asking a question", .finished: "just finished", .error: "hit an error",
+            .ratelimit: "rate-limited",
+        ]
+        var lines: [String] = []
+        for task in tasks where PillCatalog.isSession(task.id) && task.state != .idle {
+            var line = "• \(task.name) — \(label[task.state] ?? task.state.rawValue)"
+            if task.steps.count > 1 { line += ", step \(task.stepIndex + 1)/\(task.steps.count)" }
+            let recent = task.steps.suffix(6)
+            if !recent.isEmpty {
+                line += ". Steps: " + recent.joined(separator: " | ")
+            }
+            if let final = task.finalLine, !final.isEmpty {
+                line += ". Last message: \"\(String(final.prefix(200)))\""
+            }
+            let diffs = sessionDiffs[task.id] ?? []
+            if !diffs.isEmpty {
+                let files = diffs.suffix(4).map { "\($0.name) +\($0.added) -\($0.removed)" }
+                line += ". Recent files: " + files.joined(separator: ", ")
+            }
+            lines.append(line)
+        }
+        return lines.prefix(5).joined(separator: "\n")
+    }
+
     private func resetSessionDiffTimer(for pillId: String) {
         sessionDiffTimers[pillId]?.cancel()
         let work = DispatchWorkItem { [weak self] in
