@@ -363,7 +363,7 @@ final class AppState: ObservableObject {
     /// Session pills only (VS Code, Cursor, Codex, Copilot conversations…),
     /// idle main pills excluded, capped at 5 lines with the 6 last steps each.
     func agentSessionsSummary() -> String {
-        let label: [String: String] = [
+        let label: [BotState: String] = [
             .working: "working", .thinking: "thinking", .approval: "waiting for approval",
             .question: "asking a question", .finished: "just finished", .error: "hit an error",
             .ratelimit: "rate-limited",
